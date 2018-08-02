@@ -38,7 +38,7 @@ fn main() {
     }
 
     // Next, fall back and try to use pkg-config if its available.
-    if !target.contains("windows") {
+    if !target.contains("windows") && cfg!(feature = "use-sys-curl") && false {
         match pkg_config::find_library("libcurl") {
             Ok(lib) => {
                 for path in lib.include_paths.iter() {
@@ -75,8 +75,13 @@ fn main() {
     }
 
     let openssl_root = register_dep("OPENSSL");
+    let wolfssl_root = register_dep("WOLFSSL");
     let zlib_root = register_dep("Z");
     let nghttp2_root = register_dep("NGHTTP2");
+
+    if (cfg!(feature = "wolfssl") || wolfssl_root.is_some()) && windows {
+        panic!("no idea if/how that would work");
+    }
 
     let cfg = cc::Build::new();
     let compiler = cfg.get_compiler();
@@ -88,6 +93,11 @@ fn main() {
     for arg in compiler.args() {
         cflags.push(arg);
         cflags.push(" ");
+    }
+
+    // note - wolfssl needs to be compiled with this option as well
+    if cfg!(feature = "wolfssl") || wolfssl_root.is_some() {
+        //cflags.push("-fPIC ");
     }
 
     // Can't run ./configure directly on msys2 b/c we're handing in
@@ -126,13 +136,32 @@ fn main() {
 
     if windows {
         cmd.arg("--with-winssl");
-    } else {
+    } else if !(cfg!(feature = "wolfssl") || wolfssl_root.is_some()) {
+        // this seemed to cause some problems with a wolfssl build,
+        // so disabled it there
         cmd.arg("--without-ca-bundle");
         cmd.arg("--without-ca-path");
     }
-    if let Some(root) = openssl_root {
+
+    // supply a default install location if only the feature is enabled. the
+    // default is still overridden by the DEP_WOLFSSL_ROOT env variable
+    let wolfssl_root = match wolfssl_root {
+        Some(root) => Some(root), // use DEP_WOLFSSL_ROOT if present
+        None if cfg!(feature = "wolfssl") => Some(PathBuf::from("/usr/local")),
+        _ => None
+    };
+    // uses either wolfssl or openssl, but not both
+    if let Some(root) = wolfssl_root {
+        println!("cargo:rustc-link-search=native={}/lib", msys_compatible(&root));
+        // note - I had to compile with static enabled in ./configure
+        println!("cargo:rustc-link-lib=dylib=wolfssl");
+        cmd.arg("--without-ssl");
+        cmd.arg(format!("--with-cyassl={}", msys_compatible(&root)));
+        assert!(openssl_root.is_none(), "wolfssl and openssl are mutually exclusive");
+    } else if let Some(root) = openssl_root {
         cmd.arg(format!("--with-ssl={}", msys_compatible(&root)));
     }
+
     if let Some(root) = zlib_root {
         cmd.arg(format!("--with-zlib={}", msys_compatible(&root)));
     }

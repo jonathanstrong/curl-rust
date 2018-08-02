@@ -35,3 +35,8 @@ vcpkg = "0.2"
 [build-dependencies]
 pkg-config = "0.3.3"
 cc = "1.0"
+
+[features]
+default = []
+use-sys-curl = []
+wolfssl = []

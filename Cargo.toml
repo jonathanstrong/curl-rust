@@ -36,3 +36,8 @@ mio-extras = "2.0.3"
 
 [workspace]
 members = ["systest"]
+
+[features]
+default = []
+use-sys-curl = ["curl-sys/use-sys-curl"]
+wolfssl = ["curl-sys/wolfssl"]
