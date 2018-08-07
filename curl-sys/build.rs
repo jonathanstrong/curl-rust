@@ -97,7 +97,7 @@ fn main() {
 
     // note - wolfssl needs to be compiled with this option as well
     if cfg!(feature = "wolfssl") || wolfssl_root.is_some() {
-        //cflags.push("-fPIC ");
+        cflags.push("-fPIC ");
     }
 
     // Can't run ./configure directly on msys2 b/c we're handing in
@@ -154,7 +154,7 @@ fn main() {
     if let Some(root) = wolfssl_root {
         println!("cargo:rustc-link-search=native={}/lib", msys_compatible(&root));
         // note - I had to compile with static enabled in ./configure
-        println!("cargo:rustc-link-lib=dylib=wolfssl");
+        println!("cargo:rustc-link-lib=static=wolfssl");
         cmd.arg("--without-ssl");
         cmd.arg(format!("--with-cyassl={}", msys_compatible(&root)));
         assert!(openssl_root.is_none(), "wolfssl and openssl are mutually exclusive");
